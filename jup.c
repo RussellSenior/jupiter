@@ -40,11 +40,11 @@ VECTOR a2;        /* acceleration at second p1              */
 VECTOR a3;        /* acceleration at p2                     */
 VECTOR v;         /* velocity of probe at start of interval */
 
-VECTOR io (double timep);
-VECTOR acc (VECTOR *p,VECTOR *i,int useio);
+VECTOR io();
+VECTOR acc();
 
 double dt;        /* time interval for calculations         */
-double timep;     /* elapsed time in simulation             */
+double timep;      /* elapsed time in simulation             */
 double fint;      /* time interval between dumps to file    */
 double sint;      /* time interval between dumps to screen  */
 double fdump;     /* time at which file dump occurs         */
@@ -58,11 +58,11 @@ double ep;        /* epsilon - parameter of the trajectory  */
 double r;         /* predicted closest approach to jupiter  */
 
 double energy(VECTOR *pos,VECTOR *vel,VECTOR *io,int useio);
-double angular(VECTOR *,VECTOR *);
+double angular();
 
 int    iothere;   /* boolean to indicate presence of io     */
 
-char *probe_time(double);
+char *probe_time();
 
 FILE *in,*out;
  
@@ -103,8 +103,7 @@ main (argc,argv)
             if (timep >= fdump)
             {
                 fprintf(out,
-                    "\n%.0f,%18.10e,%18.10e,%18.10e,%18.10e,%18.10e,%18.10e,"
-                    "%18.10e,%18.10e,%18.10e,%18.10e,%18.10e",
+                    "\n%.0f,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e",
                     timep,p0.x,p0.y,v.x,v.y,iopos0.x,iopos0.y,e,l,al,ep,r);
                 fdump += fint;
             }
