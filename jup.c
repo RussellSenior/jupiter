@@ -39,12 +39,14 @@ VECTOR a1;        /* acceleration at first p1               */
 VECTOR a2;        /* acceleration at second p1              */
 VECTOR a3;        /* acceleration at p2                     */
 VECTOR v;         /* velocity of probe at start of interval */
+VECTOR vio;       /* relative velocity of probe and io      */
 
-VECTOR io();
-VECTOR acc();
+VECTOR io (double timep);
+VECTOR acc (VECTOR *p,VECTOR *i,int useio);
 
+double factor;    /* variable interval parameter            */
 double dt;        /* time interval for calculations         */
-double timep;      /* elapsed time in simulation             */
+double timep;     /* elapsed time in simulation             */
 double fint;      /* time interval between dumps to file    */
 double sint;      /* time interval between dumps to screen  */
 double fdump;     /* time at which file dump occurs         */
@@ -56,13 +58,16 @@ double l;         /* angular momentum of probe              */
 double al;        /* alpha - parameter of the trajectory    */
 double ep;        /* epsilon - parameter of the trajectory  */
 double r;         /* predicted closest approach to jupiter  */
+double rio;       /* distance of probe from io              */
+double rmin;      /* minimum distance between bodies        */
+double vmax;      /* maximum velocity between bodies        */
 
 double energy(VECTOR *pos,VECTOR *vel,VECTOR *io,int useio);
-double angular();
+double angular(VECTOR *,VECTOR *);
 
 int    iothere;   /* boolean to indicate presence of io     */
 
-char *probe_time();
+char *probe_time(double);
 
 FILE *in,*out;
  
@@ -78,22 +83,46 @@ main (argc,argv)
     in = fopen(argv[1],"r");
     out = fopen(argv[2],"w");
 
-    fscanf(in,"%lf %lf %lf",&dt,&fint,&sint);
+    fscanf(in,"%lf %lf %lf",&factor,&fint,&sint);
     fscanf(in,"%lf %lf %lf %lf",&p0.x,&p0.y,&v.x,&v.y);
     fscanf(in,"%d %lf %lf",&iothere,&phi,&maxtime);
     phi *= PI / 180.0;
 
     p0.r = sqrt(sq(p0.x) + sq(p0.y));
     iopos0 = io(0.0);
+    vio.r = 2 * PI * RADIUS / PERIOD;
 
     fdump = 0.0;
     sdump = 0.0;
 
     while (timep < maxtime)
     {
+        p0.r = sqrt(sq(p0.x) + sq(p0.y));
+        if (p0.r < RADJUP)
+            fprintf(stderr,"CRASHED ON JUPITER!\n");
+        v.r = sqrt(sq(v.x) + sq(v.y));
+        if (iothere)
+        {
+            rio = sqrt(sq(p0.x - iopos0.x) + sq(p0.y - iopos0.y));
+            if (iopos0.r < RADIO)
+                fprintf(stderr,"CRASHED ON IO!\n");
+            vio.x = - vio.r * iopos0.y / RADIUS;
+            vio.y = vio.r * iopos0.x / RADIUS;
+            vio.r = sqrt(sq(v.x - vio.x) + sq(v.y - vio.y));
+        }
+        else
+        {
+            rio = 1.0e100;
+            vio.r = 0.0;
+        }
+        if (RADIUS > p0.r)
+            rmin = (p0.r > rio) ? rio : p0.r;
+        else
+            rmin = (RADIUS > rio) ? rio : RADIUS;
+        vmax = (vio.r > v.r) ? vio.r : v.r;
+        dt = factor * rmin / vmax;
         if (timep >= fdump || timep >= sdump)
         {
-            p0.r = sqrt(sq(p0.x) + sq(p0.y));
             e = energy(&p0,&v,&iopos0,iothere);
             l = angular(&p0,&v);
             al = sq(l) / (sq(MASS) * PULLJUP);
@@ -103,7 +132,8 @@ main (argc,argv)
             if (timep >= fdump)
             {
                 fprintf(out,
-                    "\n%.0f,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e",
+                    "\n%18.10e,%18.10e,%18.10e,%18.10e,%18.10e,%18.10e,%18.10e,"
+                    "%18.10e,%18.10e,%18.10e,%18.10e,%18.10e",
                     timep,p0.x,p0.y,v.x,v.y,iopos0.x,iopos0.y,e,l,al,ep,r);
                 fdump += fint;
             }
