@@ -1,7 +1,8 @@
-/*************************************************************************/
-/* JUP5.C:  A program to calculate the trajectory of a spacecraft which  */
+L/*************************************************************************/
+/* JUP6.C:  A program to calculate the trajectory of a spacecraft which  */
 /*          is encountering the planet Jupiter, in the presense of the   */
-/*          moon IO.  This version also includes several bug fixes.      */
+/*          moon IO.  This version reads input data from a textfile      */
+/*          specified on the command line.                               */
 /*************************************************************************/
 
 #include <stdio.h>
@@ -17,38 +18,60 @@ typedef struct {double x,y,r,t;} VECTOR;
 #define radIO    1.726e6
 #define mass     1.138e3
 
-double INTER;
+double INTER,dt;
 
 /************************************************/
 /*            M A I N   P R O G R A M           */
 /************************************************/
 
-FILE *out;
+FILE *out,*in;
 
-main ()
+main (argc,argv)
+   int argc;
+   char *argv[];
 {
    VECTOR SCacc,SCvel,SCpos,temp,temp2,IOpos,
-          IO(),ACC(),INITpos(),INITvel();
-   double dt,time = 0.0,l,a,e,R,E,phi,maxtime,
+          IO(),ACC();
+   double time = 0.0,l,a,e,R,E,phi,maxtime,
           energy(),L(),alpha(),epsilon(),Rmin(),
-          INTERVAL(),IOphase(),sq(),MAXtime(),DT();
+          sq();
    int i = 1,j = 1,skip,skip2,logic;
-   out = fopen("GALILEO.DAT","a");
-   INTER = INTERVAL();
-   skip  = INITskip(1);
-   skip2 = INITskip(2);
-   SCpos = INITpos();
-   SCvel = INITvel();
-   logic = IOon();
-   phi   = IOphase();
+
+   if (argc >= 2)
+      in = fopen(argv[1],"r");
+   else
+      in = fopen("STDIN","r");
+   if (argc = 3)
+      out = fopen(argv[2],"w");
+   else
+      out = fopen("GALILEO.DAT","a");
+   fscanf (in,"%lf",&INTER);
+   dt = INTER;
+   fscanf (in,"%d", &skip);
+   fscanf (in,"%d", &skip2);
+   fscanf (in,"%lf %lf",&SCpos.x,&SCpos.y);
+   SCpos.r = sqrt(sq(SCpos.x) + sq(SCpos.y));
+   SCpos.t = atan2(SCpos.y,SCpos.x);
+   fscanf (in,"%lf %lf",&SCvel.x,&SCvel.y);
+   SCvel.r = sqrt(sq(SCvel.x) + sq(SCvel.y));
+   SCvel.t = atan2(SCvel.y,SCvel.x);
+   fscanf (in,"%d",&logic);
+   fscanf (in,"%lf", &phi);
+   phi = phi * PI / 180.0;
+   fscanf (in,"%lf",&maxtime);
    IOpos = IO(time,phi);
-   maxtime = MAXtime();
    dump(0,time,SCpos,SCvel);
    dump(1,time,SCpos,IOpos);
+   E = energy (SCpos,SCvel);
+   l = L (SCpos,SCvel);
+   a = alpha (l);
+   e = epsilon (E,l);
+   R = Rmin (a,e);
+   printf("     %12.5e %12.5e %12.5e %12.5e %12.5e\n",E,l,a,e,R);
+   fprintf(out,"%.8e,%.8e,%.8e,%.8f,%.8e",E,l,a,e,R);
    while (time <= maxtime)
    {
       SCacc = ACC(SCpos,IOpos,logic);
-      dt = DT(SCpos,SCvel);
       temp.x = SCpos.x + (SCvel.x * dt) + (SCacc.x * sq(dt));
       temp.y = SCpos.y + (SCvel.y * dt) + (SCacc.y * sq(dt));
       temp.r = sqrt(sq(temp.x) + sq(temp.y));
@@ -86,7 +109,7 @@ main ()
          a = alpha (l);
          e = epsilon (E,l);
          R = Rmin (a,e);
-         fprintf(out,"%12.5e,%12.5e,%12.5e,%12.5e,%12.5e\n",E,l,a,e,R);
+         fprintf(out,"%.8e,%.8e,%.8e,%.8f,%.8e",E,l,a,e,R);
       }  else j++;
    }
    fclose(out);
@@ -94,66 +117,13 @@ main ()
 
 /************************************************/
 
-double INTERVAL ()
-{
-   double m;
-   printf("Please enter the length of standard interval (in seconds) ...");
-   scanf ("%lf",&m);
-   return m;
-}
-
-/************************************************/
-
-INITskip (k)
-   short k;
-{
-   int j;
-   if (k == 1)
-   {
-      printf("Please enter the number of loops between output lines... ");
-      scanf ("%d", &j);
-   }
-   if (k == 2)
-   {
-      printf("Please enter the number of loops between outfile lines... ");
-      scanf ("%d", &j);
-   }
-   return j;
-}
-
-/************************************************/
-
-VECTOR INITpos ()
-{
-   VECTOR pos;
-   printf("Please enter the initial position (x,y) of the SC...");
-   scanf ("%lf %lf",&pos.x,&pos.y);
-   pos.r = sqrt(sq(pos.x) + sq(pos.y));
-   pos.t = atan2(pos.y,pos.x);
-   return pos;
-}
-
-/************************************************/
-
-VECTOR INITvel ()
-{
-   VECTOR vel;
-   printf("Please enter the initial velocity (x,y) of the SC...");
-   scanf ("%lf %lf",&vel.x,&vel.y);
-   vel.r = sqrt(sq(vel.x) + sq(vel.y));
-   vel.t = atan2(vel.y,vel.x);
-   return vel;
-}
-
-/************************************************/
-
-
 VECTOR ACC (location,locIO,on)
    VECTOR location,locIO;
    int on;
 {
    VECTOR toJUP,toIO,posIO,total;
    toJUP.r = - pulljup / sq(location.r);
+   if (location.r < radJUP) printf("\n\nCRASH...CRASHED ON JUPITER!\n\n");
    toJUP.x = toJUP.r * location.x / location.r;
    toJUP.y = toJUP.r * location.y / location.r;
    if (on != 0)
@@ -161,6 +131,7 @@ VECTOR ACC (location,locIO,on)
       posIO.x = location.x - locIO.x;
       posIO.y = location.y - locIO.y;
       posIO.r = sqrt(sq(posIO.x) + sq(posIO.y));
+      if (posIO.r < radIO) printf("\n\nCRASH...CRASHED ON IO!\n\n");
       toIO.r  = - pullio  / sq(posIO.r);
       toIO.x  = toIO.r * posIO.x / posIO.r;
       toIO.y  = toIO.r * posIO.y / posIO.r;
@@ -175,37 +146,6 @@ VECTOR ACC (location,locIO,on)
       toJUP.t = atan2(toJUP.y,toJUP.x);
       return toJUP;
    }
-}
-
-/************************************************/
-
-IOon ()
-{
-   int logical;
-   printf("Shall IO exert a gravitational force (0 for no, else yes)? ... ");
-   scanf ("%d",&logical);
-   return logical;
-}
-
-/************************************************/
-
-double IOphase ()
-{
-   double phi;
-   printf("Please enter the beginning position of IO (in degrees)... ");
-   scanf ("%lf", &phi);
-   phi = phi * PI / 180.0;
-   return phi;
-}
-
-/************************************************/
-
-double MAXtime ()
-{
-   double t;
-   printf("Please enter the ending time in seconds... ");
-   scanf ("%lf",&t);
-   return t;
 }
 
 /************************************************/
@@ -269,7 +209,7 @@ dump (k,l,m,n)
    }
    if (k == 1)
    {
-      fprintf(out,"%7.0f,%12.5e,%12.5e,%12.5e,%12.5e,",l,m.x,m.y,n.x,n.y);
+      fprintf(out,"\n%.0f,%.8e,%.8e,%.8e,%.8e,",l,m.x,m.y,n.x,n.y);
    }
    return ;
 }
@@ -318,20 +258,3 @@ double Rmin (a,e)
 }
 
 /************************************************/
-
-double DT (pos,vel)
-   VECTOR pos,vel;
-{
-   VECTOR temp;
-   double temp2,temp3,interval;
-   temp.x = pos.x / pos.r;
-   temp.y = pos.y / pos.r;
-   temp2 = (temp.x * vel.x) + (temp.y * vel.y);
-   temp3 = sqrt(sq(vel.r) - sq(temp2));
-        if (temp3 < 100.0)  interval = INTER;
-   else if (temp3 < 500.0)  interval = INTER / 2.0;
-   else if (temp3 < 1000.0) interval = INTER / 4.0;
-   else if (temp3 < 2000.0) interval = INTER / 10.0;
-   else                     interval = INTER / 20.0;
-   return interval;
-}
