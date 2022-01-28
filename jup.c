@@ -13,6 +13,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 typedef struct { double x,y,r,t; } VECTOR;
@@ -69,6 +70,7 @@ char *probe_time(double);
 
 FILE *in,*out;
  
+int
 main (argc,argv)
     int argc;
     char *argv[];
